@@ -1,0 +1,66 @@
+name: Nightly application build
+
+on:
+  # Allows an instructor or student to test the workflow immediately.
+  workflow_dispatch:
+
+  # GitHub's shortest supported schedule interval is five minutes.
+  # Scheduled workflows run from the repository's default branch.
+  schedule:
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: read
+
+# Prevent a delayed scheduled run from overlapping a newer run.
+concurrency:
+  group: nightly-application-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, analyze, and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew clean test
+
+      - name: Run Checkstyle and SpotBugs
+        run: ./gradlew checkstyleMain spotbugsMain -PstaticAnalysis=true
+
+      - name: Build runnable distribution ZIP
+        run: ./gradlew distZip
+
+      # Keep diagnostic reports even if a previous step fails.
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports-${{ github.run_number }}
+          path: build/reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Runs only if all preceding required steps succeed.
+      - name: Upload runnable application ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-management-${{ github.run_number }}
+          path: build/distributions/*.zip
+          if-no-files-found: error
+          retention-days: 14
