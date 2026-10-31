@@ -6,8 +6,8 @@ on:
 
   # GitHub's shortest supported schedule interval is five minutes.
   # Scheduled workflows run from the repository's default branch.
-  schedule:
-    - cron: '*/5 * * * *'
+  # schedule:
+  #   - cron: '*/5 * * * *'
 
 permissions:
   contents: read
